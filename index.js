@@ -125,6 +125,42 @@ conn.on("ready", () => {
                       );
                       break;
                     }
+                    case "1b5b41": {
+                      if (historyCursor + 1 < commandHistory.length) {
+                        historyCursor += 1;
+                      }
+
+                      command = commandHistory[historyCursor].split("");
+
+                      stream.write(
+                        `${ansiEscapes.eraseLine}${
+                          ansiEscapes.cursorLeft
+                        }${prefix}${command.join("")}`
+                      );
+                      break;
+                    }
+                    case "1b5b42": {
+                      if (historyCursor > -1) {
+                        historyCursor -= 1;
+                      }
+
+                      if (historyCursor > -1) {
+                        command = commandHistory[historyCursor].split("");
+
+                        stream.write(
+                          `${ansiEscapes.eraseLine}${
+                            ansiEscapes.cursorLeft
+                          }${prefix}${command.join("")}`
+                        );
+                      } else {
+                        command = [];
+
+                        stream.write(
+                          `${ansiEscapes.eraseLine}${ansiEscapes.cursorLeft}${prefix}`
+                        );
+                      }
+                      break;
+                    }
                     case "1b5b43": {
                       stream.write("");
                       break;
