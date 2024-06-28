@@ -106,6 +106,39 @@ conn.on("ready", () => {
 
                       break;
                     }
+                    case "7f": {
+                      command.pop();
+
+                      stream.write(
+                        `${ansiEscapes.eraseLine}${
+                          ansiEscapes.cursorLeft
+                        }${prefix}${command.join("")}`
+                      );
+
+                      break;
+                    }
+                    case "03": {
+                      command = [];
+
+                      stream.write(
+                        `^C\n${ansiEscapes.eraseLine}${ansiEscapes.cursorLeft}${prefix}`
+                      );
+                      break;
+                    }
+                    case "1b5b43": {
+                      stream.write("");
+                      break;
+                    }
+                    case "1b5b44": {
+                      stream.write("");
+                      break;
+                    }
+                    default: {
+                      command.push(data.toString());
+
+                      stream.write(data);
+                      break;
+                    }
                   }
                 });
               })
