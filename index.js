@@ -27,7 +27,7 @@ conn.on("ready", () => {
 
       client
         .on("authentication", (ctx) => {
-          if (ctx.password?.length > 0) {
+          if (ctx.method === "publickey" || ctx.password?.length > 0) {
             user = ctx.username;
             writeStream.write(
               `SSHoney: Authentication: ${ctx.method} ${ctx.username} ${
