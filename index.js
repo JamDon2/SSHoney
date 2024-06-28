@@ -1,5 +1,6 @@
 import fs from "fs";
 import ssh2 from "ssh2";
+import ansiEscapes from "ansi-escapes";
 import "dotenv/config";
 
 let counter = 1;
@@ -44,33 +45,99 @@ conn.on("ready", () => {
 
           client.on("session", (accept, _) => {
             const session = accept();
-            session.on("exec", (accept, _, info) => {
-              const stream = accept();
+            session
+              .on("pty", (accept, _, info) => {
+                accept();
+              })
+              .on("shell", (accept, _) => {
+                const stream = accept();
 
-              writeStream.write(`SSHoney: Exec: ${info.command}\n`);
+                const prefix = `${user}@localhost:~# `;
+                const commandHistory = [];
+                let historyCursor = -1;
+                let command = [];
 
-              stream
-                .on("date", (data) => {
-                  writeStream.write(`SSHoney: Exec Data: ${data.toString()}\n`);
-                })
-                .on("close", () => {
-                  stream.close();
+                stream.write(`${user}@localhost:~# `);
+
+                stream.on("data", (data) => {
+                  switch (data.toString("hex")) {
+                    case "0d": {
+                      const commandString = command.join("");
+
+                      const index = commandHistory.indexOf(commandString);
+
+                      if (index > -1) {
+                        commandHistory.splice(index, 1);
+                      }
+
+                      commandHistory.unshift(commandString);
+
+                      historyCursor = -1;
+
+                      writeStream.write(`SSHoney: Exec: ${commandString}\n`);
+
+                      if (commandString === "exit") {
+                        stream.write(
+                          `\n${ansiEscapes.cursorLeft}logout\n${ansiEscapes.cursorLeft}`
+                        );
+                        stream.close();
+                        return;
+                      } else {
+                        conn.exec(commandString, (_, commandStream) => {
+                          commandStream
+                            .on("data", (data) => {
+                              stream.write(
+                                `\n${ansiEscapes.cursorLeft}${data.toString()}`
+                              );
+                              writeStream.write(
+                                `SSHoney: Result: ${data.toString().trim()}\n`
+                              );
+                            })
+                            .on("exit", () => {
+                              commandStream.close();
+                              stream.write(
+                                `\n${ansiEscapes.cursorLeft}${prefix}`
+                              );
+                            });
+                        });
+                      }
+
+                      command = [];
+
+                      break;
+                    }
+                  }
                 });
+              })
+              .on("exec", (accept, _, info) => {
+                const stream = accept();
 
-              conn.exec(info.command, (_, commandStream) => {
-                commandStream
-                  .on("data", (data) => {
-                    stream.write(data);
+                writeStream.write(`SSHoney: Exec: ${info.command}\n`);
+
+                stream
+                  .on("date", (data) => {
                     writeStream.write(
-                      `SSHoney: Result: ${data.toString().trim()}\n`
+                      `SSHoney: Exec Data: ${data.toString()}\n`
                     );
                   })
-                  .on("exit", () => {
-                    stream.end();
-                    commandStream.close();
+                  .on("close", () => {
+                    stream.close();
                   });
+
+                conn.exec(info.command, (_, commandStream) => {
+                  commandStream
+                    .on("data", (data) => {
+                      stream.write(data);
+                      writeStream.write(
+                        `SSHoney: Result: ${data.toString().trim()}\n`
+                      );
+                    })
+                    .on("exit", () => {
+                      stream.end();
+                      commandStream.close();
+                    });
+                });
               });
-            });
           });
         })
         .on("close", () => {
